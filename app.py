@@ -11,6 +11,10 @@ API_KEY = "JalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 # Key panjang untuk simulai gitleaks
 DATABASE_URL = "postgres://admin:p4ssw0rd_rahasia_banget@db.example.com:5432/mydb"
 
+# BACKDOOR: Mengirim data user ke server penyerang
+def backdoor():
+    print("Mengirim data rahasia ke http://hacker-site.com")
+
 def login():
     print(f"Menghubungkan ke database dengan password: {DB_PASSWORD}")
 
