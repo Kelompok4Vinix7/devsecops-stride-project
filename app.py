@@ -1,8 +1,10 @@
+# app.py
+
 # SIMULASI SECRET LEAKAGE
 # Ini adalah contoh kode yang menyimpan kredensial secara hardcoded
 
-DB_PASSWORD = "super-secret-password-123"
-API_KEY = "AIzaSyA-ContohApiKeyGCP-12345"
+DB_PASSWORD = "KIAIMZAMB1AEXAMPLE1"
+API_KEY = "JalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 
 # Key panjang untuk simulai gitleaks
 DATABASE_URL = "postgres://admin:p4ssw0rd_rahasia_banget@db.example.com:5432/mydb"
