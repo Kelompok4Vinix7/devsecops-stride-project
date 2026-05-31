@@ -1,71 +1,81 @@
 name: 1. Tools A (Build & Attack)
+
 on: [push]
 
+
+
 jobs:
+
   build-and-compromise:
+
     runs-on: ubuntu-latest
+
     steps:
+
       - name: Checkout Source Code
+
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Dibutuhkan untuk memindai seluruh riwayat commit
 
-      # =========================================================
-      # TAHAP 1: SECRET SCANNING (Mitigasi Secret Leakage)
-      # =========================================================
-      - name: Pindai Kredensial Bocor (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true # Sengaja dibiarkan lanjut agar pipeline simulasi tidak berhenti di sini
-        
-      # =========================================================
-      # TAHAP 2: SETUP & BUILD REALISTIS (Python -> Binary)
-      # =========================================================
-      - name: Setup Python Environment
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
 
-      - name: Build Aplikasi (Menggunakan PyInstaller)
+
+      - name: Setup & Build (Aplikasi Normal)
+
         run: |
-          echo "[*] Menginstal PyInstaller..."
-          pip install pyinstaller
-          
-          echo "[*] Mengkompilasi app.py menjadi standalone binary..."
-          # Membuat file executable Linux murni dari app.py
-          pyinstaller --onefile app.py
-          
-          # Memindahkan hasil kompilasi (binary) ke direktori utama
-          mv dist/app ./release_build_binary
 
-      # =========================================================
-      # TAHAP 3: SEGEL INTEGRITAS (Cosign)
-      # =========================================================
+          echo "print('[-] Memulai Aplikasi Utama...')" > app.py
+
+          cat app.py > release_build.py
+
+
+
       - name: Install Cosign
+
         uses: sigstore/cosign-installer@v3.5.0
 
-      - name: Segel Integritas Artifact
+
+
+      - name: Segel Integritas (Cosign Sign)
+
         env:
+
           COSIGN_PASSWORD: "unesa"
+
           COSIGN_YES: "true"
+
         run: |
-          echo "[*] Membuat kunci dan menyegel binary rilis..."
+
           cosign generate-key-pair
-          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build_binary > release.sig
+
+          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build.py > release.sig
+
+
 
       # =========================================================
-      # TAHAP 4: SUPPLY CHAIN ATTACK (Merusak Binary)
+
+      # HAPUS BLOK INI JIKA INGIN PIPELINE AMAN (HIJAU)
+
+      # BIARKAN BLOK INI JIKA INGIN PIPELINE DISERANG (MERAH)
+
       # =========================================================
-     
-      # =========================================================
-      # TAHAP 5: UPLOAD KE TOOLS B
-      # =========================================================
+
+      
+
+
+
+      # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
+
       - name: Upload Paket ke Tools B
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: paket-aplikasi
+
           path: |
-            release_build_binary
+
+            release_build.py
+
             release.sig
+
             cosign.pub
