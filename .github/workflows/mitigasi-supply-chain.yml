@@ -1,8 +1,8 @@
-name: 2. Ruangan B (Mitigasi Keamanan)
+name: 2. Tools B (Mitigasi Keamanan)
 # Sistem estafet: Otomatis berjalan setelah "1. Ruangan A" selesai
 on:
   workflow_run:
-    workflows: ["1. Ruangan A (Build & Attack)"]
+    workflows: ["1. Tools A (Build & Attack)"]
     types:
       - completed
 
