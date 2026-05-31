@@ -81,17 +81,28 @@ jobs:
 
       # =========================================================
       # MITIGASI 3B: ARTIFACT VERIFICATION (GAGALKAN DEPLOYMENT)
-      # Sebelum file dikirim ke server production, sistem DevSecOps 
-      # WAJIB memverifikasi ulang tanda tangannya.
       # =========================================================
       - name: Verify Artifact Signature before Deployment
         run: |
           echo "[*] Memverifikasi ulang integritas artifact..."
           
-          # Perintah ini akan ERROR dan MENGHENTIKAN pipeline secara paksa
-          # karena file release_build.py sudah dimanipulasi oleh attacker, 
-          # sehingga hash-nya tidak lagi cocok dengan file release.sig!
-          cosign verify-blob --key cosign.pub --signature release.sig release_build.py
-          
-          # Baris di bawah ini TIDAK AKAN PERNAH tereksekusi karena pipeline sudah dimatikan
-          echo "[+] File aman. Melanjutkan deployment ke Production..."
+          # Kita gunakan if-else untuk menangkap hasil verifikasi Cosign.
+          # > /dev/null 2>&1 digunakan untuk menyembunyikan log error asli yang membingungkan.
+          if cosign verify-blob --key cosign.pub --signature release.sig release_build.py > /dev/null 2>&1; then
+              echo "[+] VERIFIKASI SUKSES: File aman. Tanda tangan valid."
+              echo "[+] Melanjutkan deployment ke Production..."
+          else
+              echo "=================================================================="
+              echo " 🚨 PERINGATAN KRITIS: INTEGRITAS ARTIFACT GAGAL DIVERIFIKASI 🚨"
+              echo "=================================================================="
+              echo " Sistem mendeteksi bahwa file 'release_build.py' telah BERUBAH"
+              echo " atau DIMANIPULASI setelah proses build selesai!"
+              echo ""
+              echo " Kemungkinan penyebab:"
+              echo " 1. Ada skrip pihak ketiga (Supply Chain) yang menyisipkan backdoor."
+              echo " 2. File terkorupsi saat diproses."
+              echo ""
+              echo " 🛡️ TINDAKAN OTOMATIS: Proses Deployment DIBATALKAN untuk keamanan!"
+              echo "=================================================================="
+              exit 1 # Memaksa pipeline untuk berhenti dan menampilkan status Gagal (Merah)
+          fi
