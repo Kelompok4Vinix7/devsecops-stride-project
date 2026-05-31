@@ -37,6 +37,6 @@ jobs:
               echo " PERINGATAN KRITIS: INTEGRITAS ARTIFACT GAGAL DIVERIFIKASI "
               echo "=================================================================="
               echo " Satpam Ruangan B mendeteksi file telah disusupi saat berada di Ruangan A!"
-              echo " 🛡️ TINDAKAN OTOMATIS: Proses Deployment DIBATALKAN untuk keamanan!"
+              echo " TINDAKAN OTOMATIS: Proses Deployment DIBATALKAN untuk keamanan!"
               exit 1
           fi
