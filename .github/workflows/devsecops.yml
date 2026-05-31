@@ -28,6 +28,7 @@ jobs:
       # HAPUS BLOK INI JIKA INGIN PIPELINE AMAN (HIJAU)
       # BIARKAN BLOK INI JIKA INGIN PIPELINE DISERANG (MERAH)
       # =========================================================
+
       
       # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
       - name: Upload Paket ke Tools B
