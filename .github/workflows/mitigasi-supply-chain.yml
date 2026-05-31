@@ -1,108 +1,42 @@
-name: Blue Team - Supply Chain Mitigation
-on: [push]
-
-# =========================================================
-# MITIGASI 1: LEAST PRIVILEGE RUNNER
-# Kita mengunci GITHUB_TOKEN agar hanya memiliki hak 'read' (baca).
-# Jika script penyerang berhasil mencuri token ini, mereka TIDAK AKAN BISA 
-# menggunakannya untuk mengubah kode repositori Anda atau menghapus rilis.
-# =========================================================
-permissions:
-  contents: read
+name: 2. Ruangan B (Mitigasi Keamanan)
+# Sistem estafet: Otomatis berjalan setelah "1. Ruangan A" selesai
+on:
+  workflow_run:
+    workflows: ["1. Ruangan A (Build & Attack)"]
+    types:
+      - completed
 
 jobs:
-  secure-build-and-deploy:
+  security-verification:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
-      - name: Setup Dummy Environment
-        run: |
-          echo "AWS_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE" > .env
-          echo "print('[-] Memulai Aplikasi Utama...')" > app.py
-
-      # =========================================================
-      # MITIGASI 2: SBOM & VULNERABILITY SCANNING
-      # Di dunia nyata, Trivy akan membaca file dependencies (seperti requirements.txt atau package.json).
-      # Jika alat pihak ketiga yang Anda gunakan ternyata terdaftar di database CVE 
-      # (sebagai malicious package), Trivy akan otomatis menghentikan pipeline di sini.
-      # =========================================================
-      - name: Generate SBOM & Scan with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          format: 'table'
-          exit-code: '0' # Diset '0' agar simulasi tetap berlanjut ke tahap Cosign
-          severity: 'CRITICAL,HIGH'
-
-      # TAHAP BUILD (Membangun aplikasi yang masih bersih)
-      - name: Compile Application (Clean Build)
-        run: |
-          cat app.py > release_build.py
-          echo "[+] Build aplikasi bersih selesai."
-
-      # =========================================================
-      # MITIGASI 3A: ARTIFACT SIGNING (PERSIAPAN)
-      # Memasang Cosign dan membuat kunci kriptografi (Public/Private Key) 
-      # secara dinamis untuk menandatangani artifact hasil build yang masih bersih.
-      # =========================================================
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.5.0
 
-      - name: Generate Cosign Keypair & Sign Artifact
-        env:
-          COSIGN_PASSWORD: "unesa" # Tanpa password untuk keperluan otomatisasi CI
-          COSIGN_YES: "true"
-        run: |
-          echo "[*] Membuat kunci kriptografi..."
-          cosign generate-key-pair
-          echo "[*] Menandatangani release_build.py..."
-          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build.py > release.sig
-          echo "[+] File berhasil ditandatangani. Integritas terkunci!"
+      # Menerima paket yang dikirim dari Ruangan A
+      - name: Download Paket dari Ruangan A
+        uses: actions/download-artifact@v4
+        with:
+          name: paket-aplikasi
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
 
       # =========================================================
-      # SERANGAN TERJADI (Trojanization)
-      # Penyerang (malicious dependency) diam-diam menyusup masuk dan 
-      # meracuni file release_build.py yang sudah ditandatangani tadi.
+      # VERIFIKASI HASIL DARI RUANGAN A
       # =========================================================
-      - name: Attacker Injects Backdoor (Compromised Tool)
+      - name: Verify Artifact Signature
         run: |
-          echo "[!] Attacker sedang meracuni file rilis..."
-          python3 -c "
-          import base64
-          # Pindahkan baris payload ini ke DALAM sini agar dibaca oleh Python
-          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
-          with open('release_build.py', 'a') as f:
-              f.write('\nimport base64\n')
-              f.write(f'exec(base64.b64decode({payload_b64}).decode())')
-          "
-          echo "[!] Backdoor berhasil disisipkan."
-
-      # =========================================================
-      # MITIGASI 3B: ARTIFACT VERIFICATION (GAGALKAN DEPLOYMENT)
-      # =========================================================
-      - name: Verify Artifact Signature before Deployment
-        run: |
-          echo "[*] Memverifikasi ulang integritas artifact..."
+          echo "[*] Memeriksa paket kiriman dari Ruangan A..."
           
-          # Kita gunakan if-else untuk menangkap hasil verifikasi Cosign.
-          # > /dev/null 2>&1 digunakan untuk menyembunyikan log error asli yang membingungkan.
           if cosign verify-blob --key cosign.pub --signature release.sig release_build.py > /dev/null 2>&1; then
-              echo "[+] VERIFIKASI SUKSES: File aman. Tanda tangan valid."
+              echo "[+] VERIFIKASI SUKSES: Tidak ada penyusup di Ruangan A."
               echo "[+] Melanjutkan deployment ke Production..."
           else
               echo "=================================================================="
-              echo " 🚨 PERINGATAN KRITIS: INTEGRITAS ARTIFACT GAGAL DIVERIFIKASI 🚨"
+              echo " PERINGATAN KRITIS: INTEGRITAS ARTIFACT GAGAL DIVERIFIKASI "
               echo "=================================================================="
-              echo " Sistem mendeteksi bahwa file 'release_build.py' telah BERUBAH"
-              echo " atau DIMANIPULASI setelah proses build selesai!"
-              echo ""
-              echo " Kemungkinan penyebab:"
-              echo " 1. Ada skrip pihak ketiga (Supply Chain) yang menyisipkan backdoor."
-              echo " 2. File terkorupsi saat diproses."
-              echo ""
+              echo " Satpam Ruangan B mendeteksi file telah disusupi saat berada di Ruangan A!"
               echo " 🛡️ TINDAKAN OTOMATIS: Proses Deployment DIBATALKAN untuk keamanan!"
-              echo "=================================================================="
-              exit 1 # Memaksa pipeline untuk berhenti dan menampilkan status Gagal (Merah)
+              exit 1
           fi
