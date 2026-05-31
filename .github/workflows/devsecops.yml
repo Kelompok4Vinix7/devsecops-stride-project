@@ -40,7 +40,7 @@ jobs:
           "
 
       # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
-      - name: Upload Paket ke Ruangan B
+      - name: Upload Paket ke Tools B
         uses: actions/upload-artifact@v4
         with:
           name: paket-aplikasi
