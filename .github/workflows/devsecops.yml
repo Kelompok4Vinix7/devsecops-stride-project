@@ -28,16 +28,7 @@ jobs:
       # HAPUS BLOK INI JIKA INGIN PIPELINE AMAN (HIJAU)
       # BIARKAN BLOK INI JIKA INGIN PIPELINE DISERANG (MERAH)
       # =========================================================
-      - name: Attacker Injects Backdoor (Supply Chain)
-        run: |
-          echo "[!] Attacker sedang meracuni file rilis..."
-          python3 -c "
-          import base64
-          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
-          with open('release_build.py', 'a') as f:
-              f.write('\nimport base64\n')
-              f.write(f'exec(base64.b64decode({payload_b64}).decode())')
-          "
+      
 
       # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
       - name: Upload Paket ke Tools B
