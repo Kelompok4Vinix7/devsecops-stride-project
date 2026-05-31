@@ -7,44 +7,72 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Dibutuhkan untuk memindai seluruh riwayat commit
 
-      - name: Setup & Build (Aplikasi Normal)
+      # =========================================================
+      # TAHAP 1: SECRET SCANNING (Mitigasi Secret Leakage)
+      # =========================================================
+      - name: Pindai Kredensial Bocor (Gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true # Sengaja dibiarkan lanjut agar pipeline simulasi tidak berhenti di sini
+        
+      # =========================================================
+      # TAHAP 2: SETUP & BUILD REALISTIS (Python -> Binary)
+      # =========================================================
+      - name: Setup Python Environment
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build Aplikasi (Menggunakan PyInstaller)
         run: |
-          echo "print('[-] Memulai Aplikasi Utama...')" > app.py
-          cat app.py > release_build.py
+          echo "[*] Menginstal PyInstaller..."
+          pip install pyinstaller
+          
+          echo "[*] Mengkompilasi app.py menjadi standalone binary..."
+          # Membuat file executable Linux murni dari app.py
+          pyinstaller --onefile app.py
+          
+          # Memindahkan hasil kompilasi (binary) ke direktori utama
+          mv dist/app ./release_build_binary
 
+      # =========================================================
+      # TAHAP 3: SEGEL INTEGRITAS (Cosign)
+      # =========================================================
       - name: Install Cosign
         uses: sigstore/cosign-installer@v3.5.0
 
-      - name: Segel Integritas (Cosign Sign)
+      - name: Segel Integritas Artifact
         env:
           COSIGN_PASSWORD: "unesa"
           COSIGN_YES: "true"
         run: |
+          echo "[*] Membuat kunci dan menyegel binary rilis..."
           cosign generate-key-pair
-          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build.py > release.sig
+          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build_binary > release.sig
 
       # =========================================================
-      # HAPUS BLOK INI JIKA INGIN PIPELINE AMAN (HIJAU)
-      # BIARKAN BLOK INI JIKA INGIN PIPELINE DISERANG (MERAH)
+      # TAHAP 4: SUPPLY CHAIN ATTACK (Merusak Binary)
       # =========================================================
       - name: Attacker Injects Backdoor (Supply Chain)
         run: |
-          echo "[!] Attacker sedang meracuni file rilis..."
-          python3 -c "
-          import base64
-          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
-          with open('release_build.py', 'a') as f:
-              f.write('\nimport base64\n')
-              f.write(f'exec(base64.b64decode({payload_b64}).decode())')
-          "
+          echo "[!] Attacker menyusup ke pipeline dan meracuni binary..."
+          # Karena file sekarang berupa binary (bukan teks murni), 
+          # penyerang menyisipkan byte berbahaya langsung ke dalam file executable.
+          echo "---MALICIOUS_PAYLOAD_INJECTED---" >> release_build_binary
+          echo "[!] Integritas file telah rusak secara diam-diam."
 
-      # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
+      # =========================================================
+      # TAHAP 5: UPLOAD KE TOOLS B
+      # =========================================================
       - name: Upload Paket ke Tools B
         uses: actions/upload-artifact@v4
         with:
           name: paket-aplikasi
           path: |
-            release_build.py
+            release_build_binary
             release.sig
             cosign.pub
