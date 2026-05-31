@@ -1,81 +1,50 @@
 name: 1. Tools A (Build & Attack)
-
 on: [push]
 
-
-
 jobs:
-
   build-and-compromise:
-
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout Source Code
-
         uses: actions/checkout@v4
 
-
-
       - name: Setup & Build (Aplikasi Normal)
-
         run: |
-
           echo "print('[-] Memulai Aplikasi Utama...')" > app.py
-
           cat app.py > release_build.py
 
-
-
       - name: Install Cosign
-
         uses: sigstore/cosign-installer@v3.5.0
 
-
-
       - name: Segel Integritas (Cosign Sign)
-
         env:
-
           COSIGN_PASSWORD: "unesa"
-
           COSIGN_YES: "true"
-
         run: |
-
           cosign generate-key-pair
-
           cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build.py > release.sig
 
-
-
       # =========================================================
-
       # HAPUS BLOK INI JIKA INGIN PIPELINE AMAN (HIJAU)
-
       # BIARKAN BLOK INI JIKA INGIN PIPELINE DISERANG (MERAH)
-
       # =========================================================
-
-      
-
-
+      - name: Attacker Injects Backdoor (Supply Chain)
+        run: |
+          echo "[!] Attacker sedang meracuni file rilis..."
+          python3 -c "
+          import base64
+          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
+          with open('release_build.py', 'a') as f:
+              f.write('\nimport base64\n')
+              f.write(f'exec(base64.b64decode({payload_b64}).decode())')
+          "
 
       # Membungkus File, Segel, dan Kunci Publik untuk dikirim ke Ruangan B
-
       - name: Upload Paket ke Tools B
-
         uses: actions/upload-artifact@v4
-
         with:
-
           name: paket-aplikasi
-
           path: |
-
             release_build.py
-
             release.sig
-
             cosign.pub
