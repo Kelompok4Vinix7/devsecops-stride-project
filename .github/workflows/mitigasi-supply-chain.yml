@@ -1,5 +1,5 @@
 name: 2. Tools B (Mitigasi Keamanan)
-# Sistem estafet: Otomatis berjalan setelah "1. Ruangan A" selesai
+# Sistem estafet: Otomatis berjalan setelah "1. Tools A" selesai
 on:
   workflow_run:
     workflows: ["1. Tools A (Build & Attack)"]
@@ -21,22 +21,27 @@ jobs:
           name: paket-aplikasi
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
+          path: . # <-- FIX: Memastikan file diekstrak di direktori utama, bukan di subfolder
 
       # =========================================================
       # VERIFIKASI HASIL DARI RUANGAN A
       # =========================================================
       - name: Verify Artifact Signature
         run: |
-          echo "[*] Memeriksa paket kiriman dari Ruangan A..."
+          echo "[*] Mengecek daftar file yang diterima dari Tools A:"
+          ls -la
           
-          if cosign verify-blob --key cosign.pub --signature release.sig release_build.py > /dev/null 2>&1; then
-              echo "[+] VERIFIKASI SUKSES: Tidak ada penyusup di Ruangan A."
+          echo "[*] Memeriksa paket kiriman dari Tools A..."
+          
+          # FIX: Pembungkam > /dev/null 2>&1 dihapus agar kita bisa melihat error aslinya
+          if cosign verify-blob --key cosign.pub --signature release.sig release_build.py; then
+              echo "[+] VERIFIKASI SUKSES: Tidak ada penyusup di Tools A."
               echo "[+] Melanjutkan deployment ke Production..."
           else
               echo "=================================================================="
               echo " PERINGATAN KRITIS: INTEGRITAS ARTIFACT GAGAL DIVERIFIKASI "
               echo "=================================================================="
-              echo " Satpam Ruangan B mendeteksi file telah disusupi saat berada di Ruangan A!"
+              echo " Trendeteksi file telah disusupi saat berada di Tools A!"
               echo " TINDAKAN OTOMATIS: Proses Deployment DIBATALKAN untuk keamanan!"
               exit 1
           fi
