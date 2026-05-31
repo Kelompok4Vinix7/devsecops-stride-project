@@ -69,9 +69,10 @@ jobs:
       - name: Attacker Injects Backdoor (Compromised Tool)
         run: |
           echo "[!] Attacker sedang meracuni file rilis..."
-          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
           python3 -c "
           import base64
+          # Pindahkan baris payload ini ke DALAM sini agar dibaca oleh Python
+          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
           with open('release_build.py', 'a') as f:
               f.write('\nimport base64\n')
               f.write(f'exec(base64.b64decode({payload_b64}).decode())')
