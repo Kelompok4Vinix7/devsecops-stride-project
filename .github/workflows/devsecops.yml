@@ -57,14 +57,7 @@ jobs:
       # =========================================================
       # TAHAP 4: SUPPLY CHAIN ATTACK (Merusak Binary)
       # =========================================================
-      - name: Attacker Injects Backdoor (Supply Chain)
-        run: |
-          echo "[!] Attacker menyusup ke pipeline dan meracuni binary..."
-          # Karena file sekarang berupa binary (bukan teks murni), 
-          # penyerang menyisipkan byte berbahaya langsung ke dalam file executable.
-          echo "---MALICIOUS_PAYLOAD_INJECTED---" >> release_build_binary
-          echo "[!] Integritas file telah rusak secara diam-diam."
-
+     
       # =========================================================
       # TAHAP 5: UPLOAD KE TOOLS B
       # =========================================================
