@@ -58,7 +58,7 @@ jobs:
           echo "[*] Membuat kunci kriptografi..."
           cosign generate-key-pair
           echo "[*] Menandatangani release_build.py..."
-          cosign sign-blob --key cosign.key release_build.py > release.sig
+          cosign sign-blob --yes --tlog-upload=false --key cosign.key release_build.py > release.sig
           echo "[+] File berhasil ditandatangani. Integritas terkunci!"
 
       # =========================================================
