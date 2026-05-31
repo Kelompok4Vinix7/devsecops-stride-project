@@ -1,0 +1,96 @@
+name: Blue Team - Supply Chain Mitigation
+on: [push]
+
+# =========================================================
+# MITIGASI 1: LEAST PRIVILEGE RUNNER
+# Kita mengunci GITHUB_TOKEN agar hanya memiliki hak 'read' (baca).
+# Jika script penyerang berhasil mencuri token ini, mereka TIDAK AKAN BISA 
+# menggunakannya untuk mengubah kode repositori Anda atau menghapus rilis.
+# =========================================================
+permissions:
+  contents: read
+
+jobs:
+  secure-build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Dummy Environment
+        run: |
+          echo "AWS_ACCESS_KEY=AKIAIOSFODNN7EXAMPLE" > .env
+          echo "print('[-] Memulai Aplikasi Utama...')" > app.py
+
+      # =========================================================
+      # MITIGASI 2: SBOM & VULNERABILITY SCANNING
+      # Di dunia nyata, Trivy akan membaca file dependencies (seperti requirements.txt atau package.json).
+      # Jika alat pihak ketiga yang Anda gunakan ternyata terdaftar di database CVE 
+      # (sebagai malicious package), Trivy akan otomatis menghentikan pipeline di sini.
+      # =========================================================
+      - name: Generate SBOM & Scan with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          format: 'table'
+          exit-code: '0' # Diset '0' agar simulasi tetap berlanjut ke tahap Cosign
+          severity: 'CRITICAL,HIGH'
+
+      # TAHAP BUILD (Membangun aplikasi yang masih bersih)
+      - name: Compile Application (Clean Build)
+        run: |
+          cat app.py > release_build.py
+          echo "[+] Build aplikasi bersih selesai."
+
+      # =========================================================
+      # MITIGASI 3A: ARTIFACT SIGNING (PERSIAPAN)
+      # Memasang Cosign dan membuat kunci kriptografi (Public/Private Key) 
+      # secara dinamis untuk menandatangani artifact hasil build yang masih bersih.
+      # =========================================================
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.5.0
+
+      - name: Generate Cosign Keypair & Sign Artifact
+        env:
+          COSIGN_PASSWORD: "" # Tanpa password untuk keperluan otomatisasi CI
+        run: |
+          echo "[*] Membuat kunci kriptografi..."
+          cosign generate-key-pair
+          
+          echo "[*] Menandatangani release_build.py..."
+          cosign sign-blob --key cosign.key release_build.py > release.sig
+          echo "[+] File berhasil ditandatangani. Integritas terkunci!"
+
+      # =========================================================
+      # SERANGAN TERJADI (Trojanization)
+      # Penyerang (malicious dependency) diam-diam menyusup masuk dan 
+      # meracuni file release_build.py yang sudah ditandatangani tadi.
+      # =========================================================
+      - name: Attacker Injects Backdoor (Compromised Tool)
+        run: |
+          echo "[!] Attacker sedang meracuni file rilis..."
+          payload_b64 = b'cHJpbnQoJ1tDUklUSUNBTF0gQkFDS0RPT1IgQUtUSUYgLSBEYXRhIHRlbGFoIGRpY3VyaS4nKQ=='
+          python3 -c "
+          import base64
+          with open('release_build.py', 'a') as f:
+              f.write('\nimport base64\n')
+              f.write(f'exec(base64.b64decode({payload_b64}).decode())')
+          "
+          echo "[!] Backdoor berhasil disisipkan."
+
+      # =========================================================
+      # MITIGASI 3B: ARTIFACT VERIFICATION (GAGALKAN DEPLOYMENT)
+      # Sebelum file dikirim ke server production, sistem DevSecOps 
+      # WAJIB memverifikasi ulang tanda tangannya.
+      # =========================================================
+      - name: Verify Artifact Signature before Deployment
+        run: |
+          echo "[*] Memverifikasi ulang integritas artifact..."
+          
+          # Perintah ini akan ERROR dan MENGHENTIKAN pipeline secara paksa
+          # karena file release_build.py sudah dimanipulasi oleh attacker, 
+          # sehingga hash-nya tidak lagi cocok dengan file release.sig!
+          cosign verify-blob --key cosign.pub --signature release.sig release_build.py
+          
+          # Baris di bawah ini TIDAK AKAN PERNAH tereksekusi karena pipeline sudah dimatikan
+          echo "[+] File aman. Melanjutkan deployment ke Production..."
