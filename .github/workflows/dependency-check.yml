@@ -1,39 +1,23 @@
 name: Dependency Security Scan
 on: [push]
 
+# --- MITIGASI UTAMA ---
+# Membatasi GITHUB_TOKEN agar hanya bisa membaca (Read-Only)
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v3
-        with:
-          persist-credentials: false # <--- WAJIB ADA
 
       - name: Run Trivy Scan
         uses: aquasecurity/trivy-action@master
-        continue-on-error: true
         with:
           scan-type: 'fs'
           format: 'table'
           exit-code: '1' # GAGALKAN pipeline jika ditemukan celah High/Critical
           severity: 'CRITICAL,HIGH'
-
-      - name: Attack - Successful Privilege Abuse
-        env:
-          MY_SECRET_TOKEN: ${{ secrets.HACKER_TOKEN }}
-        run: |
-          echo "Memulai serangan menggunakan leaked Token"
-          git config --global user.email "hacker@evil.com"
-          git config --global user.name "Hacker Jahat"
-          
-          echo "BERHASIL TEMBUS" > Backdoor_Virus.txt
-          
-          # Kita pastikan token terdeteksi (GitHub akan menyensornya dengan ***)
-          echo "Token check: $MY_SECRET_TOKEN"
-          
-          git add Backdoor_Virus.txt
-          git commit -m "EVIL: Exploit"
-          
-          # Gunakan variabel env dengan tanda kutip agar aman
-          git push --force "https://x-access-token:${MY_SECRET_TOKEN}@github.com/${{ github.repository }}.git" main
